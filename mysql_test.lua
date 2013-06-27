@@ -1,4 +1,4 @@
-package.cpath = "/home/work/caoguoliang/lua-mysql/lib/?.so;" .. package.cpath
+package.cpath = "/home/microwish/lua-mysql/lib/?.so;" .. package.cpath
 
 local mysql = require("mysql")
 
