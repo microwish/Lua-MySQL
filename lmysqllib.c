@@ -1,11 +1,10 @@
 /**
  * MySQL extension for Lua 5.1
  *
- * this verion is short of cache mechenism as the complexity
- * see lmysqllib_withvmlevelcache_semifinished.c if you're interested, which is in a semi-finished status
- *
- * FIXME:
- * for the moment the optional 6th argument of mysql.new function cannot be initialized by Lua table construtor
+ * this verion is short of cache/persistence mechanism as the complexity
+ * see lmysqllib_withvmlevelcache_semifinished.c if you're interested, which is under a semi-finished status
+ * TODO:
+ * put cached/persistent connections in registry or luaopen_mysql's environment
  *
  * @author microwish@gmail.com
  */
@@ -106,13 +105,12 @@ static int i_new(lua_State *L)
 	}
 
 	if (lua_istable(L, 1)) {
-		const char *opt;
 
 		lua_pushnil(L);
 		while (lua_next(L, 1)) {
-			opt = lua_tostring(L, -2);
-			do {
-				if (!strcmp(opt, "CONNECT_TIMEOUT")) {
+			switch (lua_tointeger(L, -2)) {
+				case MYSQL_OPT_CONNECT_TIMEOUT:
+				{
 					if (!lua_isnumber(L, -1)) {
 						mysql_close(*mpp);
 						lua_pushboolean(L, 0);
@@ -123,7 +121,7 @@ static int i_new(lua_State *L)
 					mysql_options(*mpp, MYSQL_OPT_CONNECT_TIMEOUT, &ui);
 					break;
 				}
-				if (!strcmp(opt, "CHARSET_NAME")) {
+				case MYSQL_SET_CHARSET_NAME:
 					if (!lua_isstring(L, -1)) {
 						mysql_close(*mpp);
 						lua_pushboolean(L, 0);
@@ -132,8 +130,7 @@ static int i_new(lua_State *L)
 					}
 					mysql_options(*mpp, MYSQL_SET_CHARSET_NAME, lua_tostring(L, -1));
 					break;
-				}
-				if (!strcmp(opt, "INIT_COMMAND")) {
+				case MYSQL_INIT_COMMAND:
 					if (!lua_isstring(L, -1)) {
 						mysql_close(*mpp);
 						lua_pushboolean(L, 0);
@@ -142,13 +139,12 @@ static int i_new(lua_State *L)
 					}
 					mysql_options(*mpp, MYSQL_INIT_COMMAND, lua_tostring(L, -1));
 					break;
-				}
-
-				mysql_close(*mpp);
-				lua_pushboolean(L, 0);
-				lua_pushfstring(L, "Invalid option %s", opt);
-				return 2;
-			} while (0);
+				default:
+					mysql_close(*mpp);
+					lua_pushboolean(L, 0);
+					lua_pushfstring(L, "Invalid option");
+					return 2;
+			}
 			lua_pop(L, 1);
 		}
 	}
@@ -189,6 +185,14 @@ static int i_close(lua_State *L)
 	*mpp = NULL;
 
 	return 1;
+}
+
+static int gctm(lua_State *L)
+{
+	MYSQL **mpp = (MYSQL **)luaL_checkudata(L, 1, LUA_MYSQLHANDLE);
+	if (*mpp) mysql_close(*mpp);
+	*mpp = NULL;
+	return 0;
 }
 
 static int i_set_charset(lua_State *L)
@@ -495,6 +499,7 @@ static const luaL_Reg obj_lib[] = {
 	{ "real_escape_string", i_real_escape_string },
 	{ "set_charset", i_set_charset },
 	{ "autocommit", i_autocommit },
+	{ "__gc", gctm },
 	{ NULL, NULL }
 };
 
@@ -523,24 +528,25 @@ LUALIB_API int luaopen_mysql(lua_State *L)
 
 	lua_createtable(L, 0, 2);
 
+	//accordant with enum mysql_option in mysql.h
 	lua_createtable(L, 6, 0);
 	lua_pushliteral(L, "CONNECT_TIMEOUT");
-	lua_pushliteral(L, "CONNECT_TIMEOUT");
+	lua_pushinteger(L, MYSQL_OPT_CONNECT_TIMEOUT);
 	lua_rawset(L, -3);
 	lua_pushliteral(L, "CHARSET_NAME");
-	lua_pushliteral(L, "CHARSET_NAME");
+	lua_pushinteger(L, MYSQL_SET_CHARSET_NAME);
 	lua_rawset(L, -3);
 	lua_pushliteral(L, "LOCAL_INFILE");
-	lua_pushliteral(L, "LOCAL_INFILE");
+	lua_pushinteger(L, MYSQL_OPT_LOCAL_INFILE);
 	lua_rawset(L, -3);
 	lua_pushliteral(L, "INIT_COMMAND");
-	lua_pushliteral(L, "INIT_COMMAND");
+	lua_pushinteger(L, MYSQL_INIT_COMMAND);
 	lua_rawset(L, -3);
 	lua_pushliteral(L, "READ_DEFAULT_FILE");
-	lua_pushliteral(L, "READ_DEFAULT_FILE");
+	lua_pushinteger(L, MYSQL_READ_DEFAULT_FILE);
 	lua_rawset(L, -3);
 	lua_pushliteral(L, "READ_DEFAULT_GROUP");
-	lua_pushliteral(L, "READ_DEFAULT_GROUP");
+	lua_pushinteger(L, MYSQL_READ_DEFAULT_GROUP);
 	lua_rawset(L, -3);
 
 	lua_setfield(L, -2, "__index");
