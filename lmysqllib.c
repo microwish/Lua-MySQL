@@ -522,14 +522,21 @@ LUALIB_API int luaopen_mysql(lua_State *L)
 {
 	createmeta(L);
 
+	//main table for this module
+	lua_newtable(L);
+
+	//metatable for the main table
+	lua_createtable(L, 0, 2);
+
 	luaL_register(L, LUA_MYSQLLIBNAME, class_lib);
 
-	lua_newtable(L);
+	//for mysql.OPTION table
+	lua_createtable(L, 0, 1);
 
 	lua_createtable(L, 0, 2);
 
 	//accordant with enum mysql_option in mysql.h
-	lua_createtable(L, 6, 0);
+	lua_createtable(L, 0, 6);
 	lua_pushliteral(L, "CONNECT_TIMEOUT");
 	lua_pushinteger(L, MYSQL_OPT_CONNECT_TIMEOUT);
 	lua_rawset(L, -3);
@@ -549,13 +556,21 @@ LUALIB_API int luaopen_mysql(lua_State *L)
 	lua_pushinteger(L, MYSQL_READ_DEFAULT_GROUP);
 	lua_rawset(L, -3);
 
+	//set metamethod
 	lua_setfield(L, -2, "__index");
 	lua_pushcfunction(L, settablereadonly);
 	lua_setfield(L, -2, "__newindex");
 
 	lua_setmetatable(L, -2);
 
+	//for mysql.OPTION table
 	lua_setfield(L, -2, "OPTION");
+
+	lua_setfield(L, -2, "__index");
+	lua_pushcfunction(L, settablereadonly);
+	lua_setfield(L, -2, "__newindex");
+
+	lua_setmetatable(L, -2);
 
 	return 1;
 }
