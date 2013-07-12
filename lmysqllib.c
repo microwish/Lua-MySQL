@@ -6,7 +6,7 @@
  * TODO:
  * put cached/persistent connections in registry or luaopen_mysql's environment
  *
- * @author microwish@gmail.com
+ * @author microwish@baidu.com
  */
 #include <mysql/mysql.h>
 
@@ -190,8 +190,10 @@ static int i_close(lua_State *L)
 static int gctm(lua_State *L)
 {
 	MYSQL **mpp = (MYSQL **)luaL_checkudata(L, 1, LUA_MYSQLHANDLE);
-	if (*mpp) mysql_close(*mpp);
-	*mpp = NULL;
+	if (*mpp) {
+		mysql_close(*mpp);
+		*mpp = NULL;
+	}
 	return 0;
 }
 
